@@ -6,22 +6,27 @@ import random
 pygame.init()
 
 height = 800
-width = 1000
+width = 600
 fps = 30
 
 hive_height = 3*height / 4
 
-hive_n = 10
-hive_size = 20
+hive_n = 20
+hive_size = 25
 origin_pos = (width/2, 7*height/8)
 war_n = 10
 work_n = 20
 
 ###COLORS###
 black = (27,27,27)
-hive_yellow = (208,162,64)
+hive_yellow = (120,90,30)
 brown = (68,44,13)
 skin = (255, 216, 142)
+
+war_image = pygame.image.load("images/kbee.png")
+work_image = pygame.image.load("images/bee.png")
+work_image_f = pygame.transform.flip(work_image,True,True)
+hand_image = pygame.image.load("images/finger.png")
 
 display = pygame.display.set_mode((width, height))
 pygame.display.set_caption('display caption')
@@ -45,19 +50,20 @@ class bee:
         self.typ = typ
         self.di = 1
         self.diy = 1
+        self.v = (1,1)
 
     def move(self):
         if self.typ == "warrior":
             if grabbing == True:
                 self.speed = 5
-                v = (player.x - self.pos[0], player.y - self.pos[1])
+                self.v = (player.x - self.pos[0], player.y - self.pos[1])
             else:
                 #self.orig = ((width - self.orig[0])*math.cos(0.01) - (height -self.orig[1])*math.sin(0.01),(height - self.orig[1])*math.cos(0.01) + (width - self.orig[0])*math.sin(0.01))
                 self.speed = 3 
-                v = (self.orig[0] - self.pos[0], self.orig[1] - self.pos[1])
+                self.v = (self.orig[0] - self.pos[0], self.orig[1] - self.pos[1])
         
-            if v != (0,0):
-                self.dir = v/np.linalg.norm(v)
+            if self.v != (0,0):
+                self.dir = self.v/np.linalg.norm(self.v)
                 self.pos = self.pos + self.dir * self.speed 
                 
     #        if grabbing = False
@@ -85,7 +91,16 @@ class bee:
                 self.dir = v/np.linalg.norm(v)
                 self.pos = self.pos + self.dir * self.speed 
     def draw(self):
-        pygame.draw.rect(display,self.col,pygame.Rect(self.pos[0] - self.size/2,self.pos[1]-self.size/2,self.size,self.size))
+        if(self.typ == "worker"):
+            if(self.di == 1):
+                display.blit(work_image,(self.pos[0]-20,self.pos[1]-20))
+            else:
+                display.blit(work_image_f,(self.pos[0]-20,self.pos[1]-20))
+        elif(self.typ == "warrior"):
+            if self.v != (0,0):
+                rot = pygame.transform.rotate(war_image,math.degrees(math.tan(-1*self.v[1]/self.v[0])))
+                display.blit(rot,(self.pos[0]-20,self.pos[1]-20))
+        #pygame.draw.rect(display,self.col,pygame.Rect(self.pos[0] - self.size/2,self.pos[1]-self.size/2,self.size,self.size))
         #pygame.draw.rect(display,(10,255,20),pygame.Rect(self.orig[0],self.orig[1],self.size,self.size))
 class hand:
     def __init__(self,x,y):
@@ -93,24 +108,35 @@ class hand:
         self.y = y
         self.d_x = origin_pos[0]
         self.d_y = origin_pos[1]
+        self.de_x = origin_pos[0]
+        self.de_y = -200
+        self.eks = self.de_x
+        self.way = self.de_y
         self.size = 50
 
     def move(self):
         self.x += (self.d_x - self.x)*0.4
         self.y += (self.d_y - self.y)*0.2
+        self.eks += (self.de_x - self.eks)*0.4
+        self.way += (self.de_y - self.way)*0.2
 
     def draw(self):
         pygame.draw.rect(display,skin,pygame.Rect(self.x-self.size/2,self.y-self.size/2,self.size,self.size ))
+        display.blit(hand_image,(self.eks - 30,self.way - 975))
 
 class hive:
-    def __init__(self,i):
-        self.x = i 
-        self.y = i
+    def __init__(self,x,y):
+        self.x = x
+        self.y = y
     def draw(self):
         pygame.draw.rect(display,hive_yellow,pygame.Rect(self.x,self.y, hive_size,hive_size))
 
 for i in range(hive_n):
-    hives.append(hive((i)))
+    for j in range(hive_n):
+        if j % 2 == 0:
+            hives.append(hive(i*(width/hive_n) + 0.5*hive_size,j*(hive_height/hive_n)))
+        else:
+            hives.append(hive((i-0.5)*(width/hive_n) + 0.5*hive_size,j*(hive_height/hive_n)))
 for b in range(war_n):
     bees.append(bee(random.randint(0,width),height/2,(200,50,50),"warrior"))
 for b in range(work_n):
@@ -149,6 +175,8 @@ def main_loop():
             if event.type == pygame.MOUSEBUTTONDOWN:
                 player.d_x = pygame.mouse.get_pos()[0]
                 player.d_y = min(hive_height,pygame.mouse.get_pos()[1])
+                player.de_x = player.d_x
+                player.de_y = player.d_y
                 grabbing = True
                 g_since = pygame.time.get_ticks()
                 pass
@@ -156,6 +184,8 @@ def main_loop():
                 randomize_bees("warrior")
                 player.d_x = origin_pos[0]
                 player.d_y = origin_pos[1]
+                player.de_x = origin_pos[0]
+                player.de_y = -200
                 points += math.floor(inhand)
                 grabbing = False
                 print("Points: " + str(points))
@@ -169,8 +199,9 @@ def main_loop():
 
         display.fill(brown)
         
-        update_bees()
         draw_hives()
+        update_bees()
+        #draw_hives()
         player.draw()
         player.move()
         collision()
