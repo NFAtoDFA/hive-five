@@ -4,6 +4,7 @@ import numpy as np
 import random
 
 pygame.init()
+pygame.font.init()
 
 height = 800
 width = 600
@@ -29,7 +30,7 @@ work_image_f = pygame.transform.flip(work_image,True,True)
 hand_image = pygame.image.load("images/finger.png")
 
 display = pygame.display.set_mode((width, height))
-pygame.display.set_caption('display caption')
+pygame.display.set_caption('Hive-Five!')
 clock = pygame.time.Clock()
 
 hives = list()
@@ -113,15 +114,20 @@ class hand:
         self.eks = self.de_x
         self.way = self.de_y
         self.size = 50
+        self.col1 = (20,20,10)
+        self.col2 = brown
+        self.col_dest = self.col2
+        self.col_cur = self.col2
 
     def move(self):
         self.x += (self.d_x - self.x)*0.4
         self.y += (self.d_y - self.y)*0.2
         self.eks += (self.de_x - self.eks)*0.4
-        self.way += (self.de_y - self.way)*0.2
+        self.way += (self.de_y - self.way)*0.2 
+        self.col_cur = (self.col_cur[0] + (self.col_dest[0] - self.col_cur[0])*0.4,self.col_cur[1] + (self.col_dest[1] - self.col_cur[1])*0.4,self.col_cur[2] + (self.col_dest[2] - self.col_cur[2])*0.4)
 
     def draw(self):
-        pygame.draw.rect(display,skin,pygame.Rect(self.x-self.size/2,self.y-self.size/2,self.size,self.size ))
+        pygame.draw.circle(display,self.col_cur,(self.x-self.size/2 + 25,self.y-self.size/2 + 25),25)
         display.blit(hand_image,(self.eks - 30,self.way - 975))
 
 class hive:
@@ -157,11 +163,38 @@ def randomize_bees(typ):
             bee.orig = (random.randint(0,width),random.randint(0,hive_height))
 
 def collision():
+    global inhand, points
     for bee in bees:
         if bee.pos[0] > player.d_x - player.size/2 and bee.pos[0] < player.d_x + player.size/2 and bee.pos[1] > player.d_y - player.size/2 and bee.pos[1] < player.d_y + player.size/2:
             print("Collision!!!")
+            points -= math.floor(inhand/2)
+            inhand = 0
             return True
     return False
+
+def end_grab():
+    global points, grabbing
+    randomize_bees("warrior")
+    player.d_x = origin_pos[0]
+    player.d_y = origin_pos[1]
+    player.de_x = origin_pos[0]
+    player.de_y = -200
+    player.col_dest = player.col2
+    points += math.floor(inhand)
+    grabbing = False
+    print("Points: " + str(points))
+
+def begin_grab(): 
+    global grabbing, g_since
+    player.d_x = pygame.mouse.get_pos()[0]
+    player.d_y = min(hive_height,pygame.mouse.get_pos()[1])
+    player.de_x = player.d_x
+    player.de_y = player.d_y
+    player.col_dest = player.col1
+    grabbing = True
+    g_since = pygame.time.get_ticks()
+
+my_font = pygame.font.SysFont('Comic Sans MS', 30)
 
 def main_loop():
     exitProgram = False
@@ -173,39 +206,35 @@ def main_loop():
             if event.type == pygame.QUIT:
                 exitProgram = True
             if event.type == pygame.MOUSEBUTTONDOWN:
-                player.d_x = pygame.mouse.get_pos()[0]
-                player.d_y = min(hive_height,pygame.mouse.get_pos()[1])
-                player.de_x = player.d_x
-                player.de_y = player.d_y
-                grabbing = True
-                g_since = pygame.time.get_ticks()
+                begin_grab()
                 pass
             if event.type == pygame.MOUSEBUTTONUP:
-                randomize_bees("warrior")
-                player.d_x = origin_pos[0]
-                player.d_y = origin_pos[1]
-                player.de_x = origin_pos[0]
-                player.de_y = -200
-                points += math.floor(inhand)
-                grabbing = False
-                print("Points: " + str(points))
+                end_grab()
             if event.type == pygame.KEYDOWN:
                 pass
         
         if grabbing == True:
             seconds = (pygame.time.get_ticks() - g_since)/1000
             inhand = 0.5 * 3**seconds
+            
+            inhand_sur = my_font.render("Collecting... " + str(math.floor(inhand)),False, (100,255,100))
             print(inhand)
 
         display.fill(brown)
         
+        score_sur = my_font.render("SCORE: " + str(points),False,(255,255,200))
+
+
         draw_hives()
         update_bees()
         #draw_hives()
         player.draw()
         player.move()
-        collision()
-
+        if (collision()):
+            end_grab()
+        display.blit(score_sur, (30,30))
+        if grabbing == True:
+            display.blit(inhand_sur,(30,60))
         pygame.display.update()
         clock.tick(fps)
 
